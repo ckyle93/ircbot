@@ -4,8 +4,8 @@
  * www.reddit.com/r/dailyprogrammer/comments/4ad23z/20160314_challenge_258_easy_irc_making_a/
 */
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
@@ -14,14 +14,18 @@
 #include <netdb.h>
 #include <assert.h>
 
+#define BUFFER_SIZE 1024
+char *buffer = [BUFFER_SIZE];
+size_t inbuf_used = 0;
+
 void error(const char *msg) {
     perror(msg);
     exit(0);
 }
 
 void send_nickname(const char *nick, int sock) {
-    char buffer[512];
-    bzero(buffer,512);
+    char buffer[BUFFER_SIZE];
+    bzero(buffer,BUFFER_SIZE);
     snprintf(buffer, sizeof buffer, "NICK %s\r\n", nick);
     printf("%s", buffer);
     int n = write(sock,buffer,strlen(buffer));
@@ -30,8 +34,8 @@ void send_nickname(const char *nick, int sock) {
 }
 
 void send_username(const char *user_name, const char *real_name, int sock) {
-    char buffer[512];
-    bzero(buffer,512);
+    char buffer[BUFFER_SIZE];
+    bzero(buffer,BUFFER_SIZE);
     snprintf(buffer, sizeof buffer,
         "USER %s 0 * :%s\r\n", user_name, real_name);
     printf("%s", buffer);
@@ -40,17 +44,51 @@ void send_username(const char *user_name, const char *real_name, int sock) {
          error("ERROR writing to socket");
 }
 
+// Based off of the example provided by bdonlan at
+// http://stackoverflow.com/questions/6090594/c-recv-read-until-newline-occurs
+void read_lines(char *str) {
+    size_t buf_remain = sizeof(inbuf) - inbuf_used;
+    if (buf_remain == 0) {
+        fprintf(stderr, "Line exceeded buffer length. \n");
+    }
+
+    ssize_t rv = read(sock, buffer, BUFFER_SIZE - 1);
+    if (rv == 0) {
+        fprintf(stderr, "Connection closed.");
+    }
+    if (rv < 0 && errno == EAGAIN) {
+        // Socket has no data for us
+        return;
+    }
+    if (rv < 0) {
+       error("Connection error");
+    }
+    inbuf_used += rv;
+
+    char *line_start = str;
+    char *line_end;
+    while( (line_end = memchr((void*)line_start, '\n', buf_used - (line_start -inbuf)))){
+        *line_end = 0;
+        printf("%s\n\n", line_start);
+        line_start = line_end + 1;
+    }
+    buf_used -= (inbuf - line_start);
+    memmove(inbuf, line_start, inbuf_used);
+}
+
+
+
 // This loop doesn't end unless an error occurs
 void listen_to_server(int sock) {
-    char buffer[512];
+    char buffer[BUFFER_SIZE];
     while(1) {
-        bzero(buffer,512);
-        int n = read(sock,buffer,511);
-        if (n < 0) 
+        bzero(buffer,BUFFER_SIZE);
+        int n = read(sock,buffer,BUFFER_SIZE - 1);
+        if (n < 0)
              error("ERROR reading from socket");
         char *buffstr = strdup(buffer);
         assert(buffstr != NULL);
-        printf("%s",buffer);
+        read_lines(buffstr);
         if (strcmp(strsep(&buffstr, " "), "PING") == 0){
             char response[128];
             snprintf(response, sizeof response,
