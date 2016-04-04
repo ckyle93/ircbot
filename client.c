@@ -24,7 +24,6 @@ void error(const char *msg) {
 }
 
 void send_nickname(const char *nick, int sock) {
-    char buffer[BUFFER_SIZE];
     bzero(buffer,BUFFER_SIZE);
     snprintf(buffer, sizeof buffer, "NICK %s\r\n", nick);
     printf("%s", buffer);
@@ -34,7 +33,6 @@ void send_nickname(const char *nick, int sock) {
 }
 
 void send_username(const char *user_name, const char *real_name, int sock) {
-    char buffer[BUFFER_SIZE];
     bzero(buffer,BUFFER_SIZE);
     snprintf(buffer, sizeof buffer,
         "USER %s 0 * :%s\r\n", user_name, real_name);
@@ -46,13 +44,13 @@ void send_username(const char *user_name, const char *real_name, int sock) {
 
 // Based off of the example provided by bdonlan at
 // http://stackoverflow.com/questions/6090594/c-recv-read-until-newline-occurs
-void read_lines(char *str) {
+void read_lines(int fd) {
     size_t buf_remain = sizeof(inbuf) - inbuf_used;
     if (buf_remain == 0) {
         fprintf(stderr, "Line exceeded buffer length. \n");
     }
 
-    ssize_t rv = read(sock, buffer, BUFFER_SIZE - 1);
+    ssize_t rv = read(fd, buffer, BUFFER_SIZE - 1);
     if (rv == 0) {
         fprintf(stderr, "Connection closed.");
     }
@@ -78,26 +76,26 @@ void read_lines(char *str) {
 
 
 
-// This loop doesn't end unless an error occurs
-void listen_to_server(int sock) {
-    char buffer[BUFFER_SIZE];
-    while(1) {
-        bzero(buffer,BUFFER_SIZE);
-        int n = read(sock,buffer,BUFFER_SIZE - 1);
-        if (n < 0)
-             error("ERROR reading from socket");
-        char *buffstr = strdup(buffer);
-        assert(buffstr != NULL);
-        read_lines(buffstr);
-        if (strcmp(strsep(&buffstr, " "), "PING") == 0){
-            char response[128];
-            snprintf(response, sizeof response,
-                "PONG %s\r\n", strsep(&buffstr, " "));
-            n = write(sock, response, strlen(response)); 
-            printf("%s", response);
-        }
-    }
-}
+//// This loop doesn't end unless an error occurs
+//void listen_to_server(int sock) {
+//    char buffer[BUFFER_SIZE];
+//    while(1) {
+//        bzero(buffer,BUFFER_SIZE);
+//        int n = read(sock,buffer,BUFFER_SIZE - 1);
+//        if (n < 0)
+//             error("ERROR reading from socket");
+//        char *buffstr = strdup(buffer);
+//        assert(buffstr != NULL);
+//        read_lines(buffstr);
+//        if (strcmp(strsep(&buffstr, " "), "PING") == 0){
+//            char response[128];
+//            snprintf(response, sizeof response,
+//                "PONG %s\r\n", strsep(&buffstr, " "));
+//            n = write(sock, response, strlen(response)); 
+//            printf("%s", response);
+//        }
+//    }
+//}
 
 int main(int argc, char *argv[]) {
     int sockfd, portno;
@@ -109,28 +107,27 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
     FILE *address_file = fopen(argv[1], "r");
-    char buff[255];
 
     // Get address of the form www.example.com:1234
-    fgets(buff, 255, address_file);
+    fgets(buffer, BUFFER_SIZE, address_file);
     char *str = strdup(buff);
     char *web_address = strsep(&str, ":");
     size_t port_number = atoi(strsep(&str, ":"));
 
     // Get nickname and strip newlines.
-    fgets(buff, 255, address_file);
+    fgets(buffer, BUFFER_SIZE, address_file);
     char nickname[64];
     strtok(buff, "\n");
     strcpy(nickname, buff);
 
     // Get username and strip newlines.
-    fgets(buff, 255, address_file);
+    fgets(buffer, BUFFER_SIZE, address_file);
     char username[64];
     strtok(buff, "\n");
     strcpy(username, buff);
 
     // Get realname and strip newlines
-    fgets(buff, 255, address_file);
+    fgets(buffer, BUFFER_SIZE, address_file);
     char realname[64];
     strtok(buff, "\n");
     strcpy(realname, buff);
@@ -159,7 +156,8 @@ int main(int argc, char *argv[]) {
 
     send_nickname(nickname, sockfd);
     send_username(username, realname, sockfd);
-    listen_to_server(sockfd);
+    // listen_to_server(sockfd);
+    read_lines(sockfd);
     close(sockfd);
     return 0;
 }
