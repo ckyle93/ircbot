@@ -13,9 +13,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <assert.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 1024
-char *buffer = [BUFFER_SIZE];
+char buffer[BUFFER_SIZE];
 size_t inbuf_used = 0;
 
 void error(const char *msg) {
@@ -28,7 +29,7 @@ void send_nickname(const char *nick, int sock) {
     snprintf(buffer, sizeof buffer, "NICK %s\r\n", nick);
     printf("%s", buffer);
     int n = write(sock,buffer,strlen(buffer));
-    if (n < 0) 
+    if (n < 0)
          error("ERROR writing to socket");
 }
 
@@ -45,7 +46,7 @@ void send_username(const char *user_name, const char *real_name, int sock) {
 // Based off of the example provided by bdonlan at
 // http://stackoverflow.com/questions/6090594/c-recv-read-until-newline-occurs
 void read_lines(int fd) {
-    size_t buf_remain = sizeof(inbuf) - inbuf_used;
+    size_t buf_remain = sizeof(buffer) - inbuf_used;
     if (buf_remain == 0) {
         fprintf(stderr, "Line exceeded buffer length. \n");
     }
@@ -63,15 +64,15 @@ void read_lines(int fd) {
     }
     inbuf_used += rv;
 
-    char *line_start = str;
+    char *line_start = buffer;
     char *line_end;
-    while( (line_end = memchr((void*)line_start, '\n', buf_used - (line_start -inbuf)))){
+    while( (line_end = memchr((void*)line_start, '\n', inbuf_used - (line_start -buffer)))){
         *line_end = 0;
         printf("%s\n\n", line_start);
         line_start = line_end + 1;
     }
-    buf_used -= (inbuf - line_start);
-    memmove(inbuf, line_start, inbuf_used);
+    inbuf_used -= (line_start - buffer);
+    memmove(buffer, line_start, inbuf_used);
 }
 
 
@@ -110,27 +111,27 @@ int main(int argc, char *argv[]) {
 
     // Get address of the form www.example.com:1234
     fgets(buffer, BUFFER_SIZE, address_file);
-    char *str = strdup(buff);
+    char *str = strdup(buffer);
     char *web_address = strsep(&str, ":");
     size_t port_number = atoi(strsep(&str, ":"));
 
     // Get nickname and strip newlines.
     fgets(buffer, BUFFER_SIZE, address_file);
     char nickname[64];
-    strtok(buff, "\n");
-    strcpy(nickname, buff);
+    strtok(buffer, "\n");
+    strcpy(nickname, buffer);
 
     // Get username and strip newlines.
     fgets(buffer, BUFFER_SIZE, address_file);
     char username[64];
-    strtok(buff, "\n");
-    strcpy(username, buff);
+    strtok(buffer, "\n");
+    strcpy(username, buffer);
 
     // Get realname and strip newlines
     fgets(buffer, BUFFER_SIZE, address_file);
     char realname[64];
-    strtok(buff, "\n");
-    strcpy(realname, buff);
+    strtok(buffer, "\n");
+    strcpy(realname, buffer);
     fclose(address_file);
 
     // Connect to server
@@ -157,7 +158,9 @@ int main(int argc, char *argv[]) {
     send_nickname(nickname, sockfd);
     send_username(username, realname, sockfd);
     // listen_to_server(sockfd);
-    read_lines(sockfd);
+    while(1) {
+        read_lines(sockfd);
+    }
     close(sockfd);
     return 0;
 }
