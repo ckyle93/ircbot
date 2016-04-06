@@ -43,6 +43,27 @@ void send_username(const char *user_name, const char *real_name, int sock) {
          error("ERROR writing to socket");
 }
 
+// Check for MOTD code 376 and PING check.
+void process_line(char *str, int fd) {
+    if (strcmp(strsep(&str, " "), "PING") == 0){
+        char response[128];
+        snprintf(response, sizeof response,
+            "PONG %s\r\n", strsep(&str, " "));
+        int n = write(fd, response, strlen(response)); 
+        if (n < 0)
+            error("ERROR writing to socket");
+        printf("%s", response);
+    }
+    if (strcmp(strsep(&str, " "), "376") == 0){
+        char *join_message = "JOIN #reddit-dailyprogrammer,#botters-test";
+        int n = write(fd, join_message, strlen(join_message)); 
+        if (n < 0)
+            error("ERROR writing to socket");
+        printf("%s", join_message);
+    }
+
+}
+
 // Based off of the example provided by bdonlan at
 // http://stackoverflow.com/questions/6090594/c-recv-read-until-newline-occurs
 void read_lines(int fd) {
@@ -68,7 +89,7 @@ void read_lines(int fd) {
     char *line_end;
     while( (line_end = memchr((void*)line_start, '\n', inbuf_used - (line_start -buffer)))){
         *line_end = 0;
-        printf("%s\n\n", line_start);
+        printf("%s\n", line_start);
         line_start = line_end + 1;
     }
     inbuf_used -= (line_start - buffer);
@@ -87,13 +108,6 @@ void read_lines(int fd) {
 //             error("ERROR reading from socket");
 //        char *buffstr = strdup(buffer);
 //        assert(buffstr != NULL);
-//        read_lines(buffstr);
-//        if (strcmp(strsep(&buffstr, " "), "PING") == 0){
-//            char response[128];
-//            snprintf(response, sizeof response,
-//                "PONG %s\r\n", strsep(&buffstr, " "));
-//            n = write(sock, response, strlen(response)); 
-//            printf("%s", response);
 //        }
 //    }
 //}
