@@ -72,22 +72,22 @@ void read_lines(int fd) {
         fprintf(stderr, "Line exceeded buffer length. \n");
     }
 
-    ssize_t rv = read(fd, buffer, BUFFER_SIZE - 1);
+    ssize_t rv = read(fd, (void *)&buffer[inbuf_used], buf_remain);
     if (rv == 0) {
-        fprintf(stderr, "Connection closed.");
+        exit(EXIT_SUCCESS);
     }
     if (rv < 0 && errno == EAGAIN) {
         // Socket has no data for us
         return;
     }
     if (rv < 0) {
-       error("Connection error");
+       printf("Connection error");
     }
     inbuf_used += rv;
 
     char *line_start = buffer;
     char *line_end;
-    while( (line_end = memchr((void*)line_start, '\n', inbuf_used - (line_start -buffer)))){
+    while( (line_end = memchr((void*)line_start, '\n', inbuf_used - (line_start - buffer)))){
         *line_end = 0;
         printf("%s\n", line_start);
         line_start = line_end + 1;
