@@ -1,6 +1,6 @@
 /* By: Chris Kyle
  * This program is based off the programming challenge
- * Challenge #258 [Easy] IRC: Making a Connection
+ * Challenge #259 [Medium] IRC: Making a Connection
  * www.reddit.com/r/dailyprogrammer/comments/4ad23z/20160314_challenge_258_easy_irc_making_a/
 */
 
@@ -44,24 +44,30 @@ void send_username(const char *user_name, const char *real_name, int sock) {
 }
 
 // Check for MOTD code 376 and PING check.
-void process_line(char *str, int fd) {
+void process_line(char *line, int fd) {
+    char *str = strdup(line);
+    char *strcpy = str;
+    assert(str != NULL);
     if (strcmp(strsep(&str, " "), "PING") == 0){
         char response[128];
         snprintf(response, sizeof response,
             "PONG %s\r\n", strsep(&str, " "));
-        int n = write(fd, response, strlen(response)); 
+        int n = write(fd, response, strlen(response));
         if (n < 0)
             error("ERROR writing to socket");
         printf("%s", response);
+        free(strcpy);
+        return;
     }
     if (strcmp(strsep(&str, " "), "376") == 0){
-        char *join_message = "JOIN #reddit-dailyprogrammer,#botters-test";
+        char *join_message = "JOIN #reddit-dailyprogrammer,#botters-test\r\n";
         int n = write(fd, join_message, strlen(join_message)); 
         if (n < 0)
             error("ERROR writing to socket");
-        printf("%s", join_message);
+        printf("%s\n", join_message);
+        free(strcpy);
+        return;
     }
-
 }
 
 // Based off of the example provided by bdonlan at
@@ -90,27 +96,12 @@ void read_lines(int fd) {
     while( (line_end = memchr((void*)line_start, '\n', inbuf_used - (line_start - buffer)))){
         *line_end = 0;
         printf("%s\n", line_start);
+        process_line(line_start, fd);
         line_start = line_end + 1;
     }
     inbuf_used -= (line_start - buffer);
     memmove(buffer, line_start, inbuf_used);
 }
-
-
-
-//// This loop doesn't end unless an error occurs
-//void listen_to_server(int sock) {
-//    char buffer[BUFFER_SIZE];
-//    while(1) {
-//        bzero(buffer,BUFFER_SIZE);
-//        int n = read(sock,buffer,BUFFER_SIZE - 1);
-//        if (n < 0)
-//             error("ERROR reading from socket");
-//        char *buffstr = strdup(buffer);
-//        assert(buffstr != NULL);
-//        }
-//    }
-//}
 
 int main(int argc, char *argv[]) {
     int sockfd, portno;
